@@ -12,25 +12,16 @@ namespace syrecords\juhe;
 
 class core
 {
-    //$appkey 在个人中心->我的数据,接口名称上方查看
-    public function __construct($appkey){
-        $this->appkey = $appkey;
-    }
-
     /**
-     * 测试QQ号码吉凶
-     * @param $url
-     * @param $qq
+     * 处理参数+请求
+     * @param array $params 参数数组
+     * @param $url 请求的curl
      * @return mixed|string
      */
-    public function getQqForecast($url,$qq)
+    public static function juHeParams($params = array(),$url)
     {
-        $params = array(
-            "key" => $this->appkey,//申请的appKey
-            "qq" => $qq,//需要测试的QQ号码
-        );
         $paramstring = http_build_query($params);
-        $content = common::juHeCurl($url,$paramstring);
+        $content = self::juHeCurl($url,$paramstring);
         $result = json_decode($content,true);
         if($result){
             if($result['error_code']=='0'){
@@ -44,54 +35,45 @@ class core
     }
 
     /**
-     * 获取天气预报支持的城市 建议存入数据库中，就不用每次都去请求API
-     * @param $url
-     * @return mixed|string
+     * 请求接口返回内容
+     * @param  string $url [请求的URL地址]
+     * @param  string $params [请求的参数]
+     * @param  int $ipost [是否采用POST形式]
+     * @return  string
      */
-    public function getWeatherCitys($url)
+    public static function juHeCurl($url,$params=false,$ispost=0)
     {
-        $params = array(
-            "key" => $this->appkey,//申请的appKey
-        );
-        $paramstring = http_build_query($params);
-        $content = common::juHeCurl($url,$paramstring);
-        $result = json_decode($content,true);
-        if($result){
-            if($result['error_code']=='0'){
-                return $result;
-            }else{
-                return $result['error_code'].":".$result['reason'];
-            }
-        }else{
-            return "请求失败";
-        }
-    }
+        $httpInfo = array();
+        $ch = curl_init();
 
-    /**
-     * 通过城市名称或者id获取天气
-     * @param $url
-     * @param $city
-     * @param int $format
-     * @return mixed|string
-     */
-    public function getWeatherByName($url,$city,$format = 1)
-    {
-        $params = array(
-            'key'   => $this->appkey,
-            'cityname'  => $city,
-            'format'    => $format //未来7天预报(future)两种返回格式，1或2，默认1
-        );
-        $params = http_build_query($params);
-        $content = common::juHeCurl($url,$params);
-        $result = json_decode($content,true);
-        if($result){
-            if($result['error_code']=='0'){
-                return $result;
-            }else{
-                return $result['error_code'].":".$result['reason'];
-            }
-        }else{
-            return "请求失败";
+        curl_setopt( $ch, CURLOPT_HTTP_VERSION , CURL_HTTP_VERSION_1_1 );
+        curl_setopt( $ch, CURLOPT_USERAGENT , 'JuheData' );
+        curl_setopt( $ch, CURLOPT_CONNECTTIMEOUT , 60 );
+        curl_setopt( $ch, CURLOPT_TIMEOUT , 60);
+        curl_setopt( $ch, CURLOPT_RETURNTRANSFER , true );
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        if( $ispost )
+        {
+            curl_setopt( $ch , CURLOPT_POST , true );
+            curl_setopt( $ch , CURLOPT_POSTFIELDS , $params );
+            curl_setopt( $ch , CURLOPT_URL , $url );
         }
+        else
+        {
+            if($params){
+                curl_setopt( $ch , CURLOPT_URL , $url.'?'.$params );
+            }else{
+                curl_setopt( $ch , CURLOPT_URL , $url);
+            }
+        }
+        $response = curl_exec( $ch );
+        if ($response === FALSE) {
+            //echo "cURL Error: " . curl_error($ch);
+            return false;
+        }
+        $httpCode = curl_getinfo( $ch , CURLINFO_HTTP_CODE );
+        $httpInfo = array_merge( $httpInfo , curl_getinfo( $ch ) );
+        curl_close( $ch );
+        return $response;
     }
 }
